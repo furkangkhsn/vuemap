@@ -11,6 +11,6 @@ Vue.use(Maps, {
   }
 });
 
-new Vue({
+window.v = new Vue({
   render: h => h(App),
 }).$mount('#app')
