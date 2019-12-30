@@ -2,23 +2,25 @@
   <div id="app">
     <button id="rut_hesapla" @click="rutHesapla()" v-if="rutHesaplaButton">Rut Hesapla</button>
     <div id="directionsPanel" v-if="sortedClients.length > 0">
-      <div id="eylemlerRut">
-        <button id="rutuIptalEt" @click="rutIptalEt()">Rutu İptal Et</button>
-        <span id="optimizeSpan">
-          <input type="checkbox" id="optimizeEt" @change="optimize = !optimize"> Rutu Optimize Et
-        </span>
-        <button id="rutCiz" @click="rutCiz()">Rutu Çiz</button>
-      </div>
-      <div id="rutlar">
-        <draggable v-model="sortedClients" :swap="false" @change="sirala">
-            <transition-group type="transition" name="flip-list">
-                <div class="route" v-for="client in sortedClients" :key="client.kodu">
-                  <div class="sira">{{ client.index+1 }}</div>
+      <draggable v-model="sortedClients" :swap="false" animation="200" @change="sirala" id="rutlar">
+          <transition-group type="transition" name="flip-list">
+              <div class="route" v-for="(client, i) in sortedClients" @mouseover="showByIndex = i" @mouseout="showByIndex = null" :key="client.kodu" :style="showByIndex == i ? 'color: black' : ''" :class="(i<27) ? 'ilk25': ''">
+                <div class="sira">{{ client.index+1 }}</div>
+                <span class="bilgi">
                   <div class="no">{{ client.kodu }}</div>
                   <div class="nereden">{{ client.adi }}</div>
+                </span>
+                <div class="sil" :style="showByIndex == i ? 'visibility: visible': 'visibility: hidden'">
+                  <button @click="noktaSil(client.kodu)"><fi icon="trash" size="lg"></fi></button>
                 </div>
-            </transition-group>
-        </draggable>
+              </div>
+          </transition-group>
+      </draggable>
+      <div id="eylemlerRut">
+        <button id="rutuIptalEt" @click="rutIptalEt()"><fi icon="trash" size="lg"></fi> İptal Et </button>
+        <button id="optimizeEt" @click="optimizeEt()"><fi icon="cogs" size="lg"></fi> Optimize Et </button>
+        <button id="noktaEkle" @click="noktaEkle()"><fi icon="plus" size="lg"></fi> Nokta Ekle </button>
+        <button id="rutCiz" @click="rutCiz()"><fi icon="draw-polygon" size="lg"></fi> Rutu Çiz </button>
       </div>
     </div>
     <div id="mapC">
@@ -44,19 +46,21 @@
 
 <script>
 import {gmapApi} from 'vue2-google-maps';
-import draggable from '../node_modules/vuedraggable/src/vuedraggable';
+import draggable from 'vuedraggable';
 export default {
   components: {
     draggable
   },
   data() {
     return {
+      showByIndex: null,
       map: null,
+      baslangic: null,
       marker: null,
       center: {lat: 39, lng: 35},
       zoom: 6,
       markers: [],
-      places: [{"position":{"lat":37.86622305,"lng":32.45267310999998}},{"position":{"lat":37.870564078,"lng":32.48484947199995}},{"position":{"lat":37.874713333333,"lng":32.485296666666954}},{"position":{"lat":37.87554317,"lng":32.48508732999994}},{"position":{"lat":37.870884058046,"lng":32.488359002246966}},{"position":{"lat":37.87069287,"lng":32.48858298999994}},{"position":{"lat":37.870971666667,"lng":32.48840833333293}},{"position":{"lat":37.87108,"lng":32.488521666667}},{"position":{"lat":37.87067732,"lng":32.48925714999996}},{"position":{"lat":37.87069966,"lng":32.48939769000003}},{"position":{"lat":37.87069084,"lng":32.49133430999996}},{"position":{"lat":37.89396,"lng":32.47718833333306}},{"position":{"lat":37.87231,"lng":32.495705000000044}},{"position":{"lat":37.867728333333,"lng":32.49939500000005}},{"position":{"lat":37.86728491,"lng":32.500974110000016}},{"position":{"lat":37.867478333333,"lng":32.50089333333301}},{"position":{"lat":37.86885722,"lng":32.50103020000006}},{"position":{"lat":37.86952696,"lng":32.50096024000004}},{"position":{"lat":37.87088658,"lng":32.500330520000034}},{"position":{"lat":37.871661666667,"lng":32.50014166666699}}],
+      //places: [{"position":{"lat":37.86622305,"lng":32.45267310999998}},{"position":{"lat":37.870564078,"lng":32.48484947199995}},{"position":{"lat":37.874713333333,"lng":32.485296666666954}},{"position":{"lat":37.87554317,"lng":32.48508732999994}},{"position":{"lat":37.870884058046,"lng":32.488359002246966}},{"position":{"lat":37.87069287,"lng":32.48858298999994}},{"position":{"lat":37.870971666667,"lng":32.48840833333293}},{"position":{"lat":37.87108,"lng":32.488521666667}},{"position":{"lat":37.87067732,"lng":32.48925714999996}},{"position":{"lat":37.87069966,"lng":32.48939769000003}},{"position":{"lat":37.87069084,"lng":32.49133430999996}},{"position":{"lat":37.89396,"lng":32.47718833333306}},{"position":{"lat":37.87231,"lng":32.495705000000044}},{"position":{"lat":37.867728333333,"lng":32.49939500000005}},{"position":{"lat":37.86728491,"lng":32.500974110000016}},{"position":{"lat":37.867478333333,"lng":32.50089333333301}},{"position":{"lat":37.86885722,"lng":32.50103020000006}},{"position":{"lat":37.86952696,"lng":32.50096024000004}},{"position":{"lat":37.87088658,"lng":32.500330520000034}},{"position":{"lat":37.871661666667,"lng":32.50014166666699}}],
       rutHesaplaButton: false,
       rut_sayisi: 0,
       mesafeler: [],
@@ -558,6 +562,94 @@ export default {
         var d = R * c;
         return d;
     },
+    rutIptalEt() {
+      this.sortedClients = [];
+      this.mesafeler = [];
+      this.marker.setMap(null);
+      this.marker = null;
+      this.baslangic = null;
+      this.rutHesaplaButton = false;
+      this.rut_sayisi = 0;
+      this.markers.forEach(marker => {
+        marker.setMap(null);
+      });
+      this.markers = [];
+      this.pointListener = this.map.addListener('click', (e) => {
+        this.baslangic = e.latLng;
+        this.baslangicAyarla();  
+      });
+    },
+    noktaSil(kod) {
+      let index = this.sortedClients.findIndex(x => x.kodu == kod);
+      
+      let mIndex = this.markers.findIndex(x => x.kodu == kod);
+      this.sortedClients.splice(index, 1);
+      this.markers[mIndex].setMap(null);
+      this.markers.splice(mIndex, 1);
+    },
+    optimizeEt() {
+      let sonDurak = this.sortedClients.length/27>1 ? 27 : this.sortedClients.length-1;
+
+      let dist = {
+        lat: this.sortedClients[sonDurak].enlem,
+        lng: this.sortedClients[sonDurak].boylam
+      }
+      let wp = this.sortedClients.slice(1, sonDurak-1).map(x => {
+        return {
+          location: {
+            lat: x.enlem,
+            lng: x.boylam
+          },
+          stopover: true
+        }
+      });
+      console.log(this.sortedClients.slice(1, sonDurak-1));
+      
+      let request = {
+        origin: { lat: this.sortedClients[0].enlem, lng: this.sortedClients[0].boylam},
+        destination: { location: dist },
+        waypoints: wp,
+        optimizeWaypoints: true,
+        travelMode: 'DRIVING'
+      };
+      this.directionsService.route(request, (result, status) => {
+        if (status == 'OK') {
+          for (let i = 0; i < 27; i++) {
+            this.markers[i].setMap(null);
+          }
+          this.markers.splice(0, 27);
+          this.directionsRenderer.setDirections(result);
+          console.log(result);
+
+          let newSortedClients = [];
+          newSortedClients.push(this.sortedClients[0]);
+          result.routes[0].waypoint_order.forEach(id => {
+            newSortedClients.push(this.sortedClients.slice(1, sonDurak-1).find(x => x.enlem+'' === wp[id].location.lat+'' && x.boylam+'' === wp[id].location.lng+''));
+          });
+          newSortedClients.push(this.sortedClients[sonDurak-1]);
+          console.log(newSortedClients);
+          this.sortedClients.splice(0, 27, ...newSortedClients);
+
+          for (let i = 0; i < result.routes[0].legs.length; i++) {
+            const leg = result.routes[0].legs[i];
+            //let musteri = this.sortedClients.find(x => x.enlem+'' === leg.start_location.lat()+'' && x.boylam+'' === leg.start_location.lng()+'')
+            let mark = new this.google.maps.Marker({
+              position: leg.start_location,
+              map: this.map
+            });
+            mark.setLabel(i+1+'');
+            mark.kodu = this.sortedClients.map(x => {
+              return {
+                kodu: x.kodu,
+                uzaklik: this.getDistance({lat: leg.start_location.lat(), lng: leg.start_location.lng()}, {lat: x.enlem, lng: x.boylam})
+              }
+            }).sort((a, b) => a.uzaklik-b.uzaklik)[0].kodu;
+      
+            this.markers.splice(i, 0, mark);
+          }
+        }
+      });
+    },
     baslangicAyarla() {
       if(this.marker != undefined) this.marker.setMap(null);
       this.marker = new this.google.maps.Marker({
@@ -587,16 +679,17 @@ export default {
               position: this.mesafeler[i].location,
               map: this.map
           });
-          mark.setLabel(i+1+'');          
+          mark.setLabel(i+1+'');
+          mark.kodu = this.mesafeler[i].kodu;    
           this.markers.push(mark);
       }
-      document.querySelector('#rut_hesapla').remove();
-      
+      this.rutHesaplaButton = false;
+      window.sortedClients = this.sortedClients;
       this.google.maps.event.removeListener(this.pointListener);
     },
     sirala(e) {
       console.log(e);
-      [this.sortedClients[e.moved.oldIndex], this.sortedClients[e.moved.newIndex]] = [this.sortedClients[e.moved.newIndex], this.sortedClients[e.moved.oldIndex]];
+      //[this.sortedClients[e.moved.oldIndex], this.sortedClients[e.moved.newIndex]] = [this.sortedClients[e.moved.newIndex], this.sortedClients[e.moved.oldIndex]];
       this.markers[e.moved.oldIndex].setLabel(null);
       this.markers[e.moved.oldIndex].setLabel(e.moved.newIndex+1+'');
       this.markers[e.moved.newIndex].setLabel(e.moved.oldIndex+1+'');
@@ -606,7 +699,7 @@ export default {
         lat: this.sortedClients[this.sortedClients.length-1].enlem,
         lng: this.sortedClients[this.sortedClients.length-1].boylam
       }
-      let wp = this.sortedClients.map(x => {
+      let wp = this.sortedClients.slice(1, -1).map(x => {
         return {
           location: {
             lat: x.enlem,
@@ -615,10 +708,10 @@ export default {
         }
       });
       let request = {
-        origin: this.baslangic,
+        origin: { lat: this.sortedClients[0].enlem, lng: this.sortedClients[0].boylam },
         destination: { location: dist },
         waypoints: wp,
-        optimizeWaypoints: this.optimize,
+        optimizeWaypoints: false,
         travelMode: 'DRIVING'
       };
       this.directionsService.route(request, (result, status) => {
@@ -631,6 +724,9 @@ export default {
   },
   async mounted() {
     this.map = await this.$refs.map.$mapPromise;    
+    this.directionsRenderer.setMap(this.map);
+    //this.directionsService = new this.google.maps.DirectionsService();
+    //this.directionsRenderer = new this.google.maps.DirectionsRenderer();
     this.pointListener = this.map.addListener('click', (e) => {
         this.baslangic = e.latLng;
         this.baslangicAyarla();  
@@ -639,6 +735,12 @@ export default {
   created() {},
   computed: {
     google: gmapApi,
+    directionsService: function() {
+      return new this.google.maps.DirectionsService();
+    },
+    directionsRenderer: function() {
+      return new this.google.maps.DirectionsRenderer({suppressMarkers: true}); 
+    }
     /*markers: () =>{
       return 
     }*/
@@ -661,41 +763,116 @@ body {
 }
 
 #directionsPanel {
-    display: flex;
-    flex-direction: column;
-    top: 0;
-    left: 0;
-    z-index: 9999;
-    height: 100vh;
-    overflow: auto;
-    width: 40%;
-    border-radius: .25rem;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  background-color: rgba(223, 230, 233,1.0);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  top: 0;
+  left: 0;
+  z-index: 9999;
+  height: 100vh;
+  overflow: auto;
+  width: 40%;
+  max-width: 400px;
+  min-width: 300px;
+  border-radius: .25rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
 #directionsPanel #eylemlerRut {
-    padding: 15px 5px;
+    padding: 0;
+    bottom: 0;
 }
 
 #directionsPanel #eylemlerRut button {
-    border: none;
-    padding: 5px;
+  border: none;
+  padding: 5px;
+  background-color: #34495e;
+  cursor: pointer;
+  width: 20%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: .8rem 0;
+  border-left: 1px solid rgba(0, 0, 0,.2);
+  border-right: 1px solid rgba(0, 0, 0,.2);
+}
 
+#directionsPanel #eylemlerRut button svg {
+  margin-bottom: .3rem;
+}
+
+#directionsPanel #eylemlerRut button#rutuIptalEt {
+  color: #e76d60;
+}
+
+#directionsPanel #eylemlerRut button#optimizeEt {
+  color: #53a4da;
+}
+
+#directionsPanel #eylemlerRut button#noktaEkle {
+  color: #b985ce;
+}
+
+#directionsPanel #eylemlerRut button#rutCiz {
+  color: rgb(61, 219, 127);
 }
 
 #directionsPanel #rutlar {
     overflow-y: auto;
 }
 
+#directionsPanel #rutlar::-webkit-scrollbar  {
+    width: 2px;
+}
+
+#directionsPanel #rutlar::-webkit-scrollbar-thumb  {
+    -webkit-box-shadow: inset 0 0 6px red; 
+}
+
 #directionsPanel .route {
     display: flex;
     flex-direction: row;
     border-radius: .25rem;
-    margin: 5px;
+    margin: 15px;
     padding: 5px;
     align-items: center;
-    border: .5px solid rgb(43, 198, 215);
-    background-color: white;
+    border-bottom: .5px solid rgba(0, 0, 0,.2);
+    background-color: rgba(178, 190, 195,1.0);
+    box-shadow: 0 2px 2px 0 rgba(0,0,0,0.14), 0 3px 1px -2px rgba(0,0,0,0.12), 0 1px 5px 0 rgba(0,0,0,0.2);
+    transition: box-shadow .25s, -webkit-box-shadow .25s;
+}
+
+#directionsPanel .route .sil button {
+  background: transparent; 
+  border: none;
+  color: crimson; 
+}
+
+#directionsPanel .route .bilgi {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+#directionsPanel .route.ilk25 {
+  background-color: rgba(99, 110, 114,1.0);
+  color: rgba(255, 255, 255, .8);
+}
+
+#directionsPanel .route:hover {
+  background-color: rgba(0, 255, 255, 0.2);
+}
+
+#directionsPanel .route .sira {
+    display: flex;
+    font-size: 1.75rem;
+    justify-content: flex-end;
+    width: 30px;
+    align-items: center;
+    margin-right: .6rem;
 }
 
 #directionsPanel .route .no {
@@ -713,6 +890,7 @@ body {
     flex-direction: column;
     align-items: flex-end;
     justify-content: center;
+    font-size: 12px;
 }
 
 #rut_hesapla {
@@ -732,9 +910,7 @@ body {
     justify-content: space-between;
 }
 
-.sira {
-    display: flex;
-    width: 30px;
-    font-size: 1.75rem;
+button {
+  cursor: pointer;
 }
 </style>
