@@ -9,7 +9,7 @@
         <div id="sayfaNo">
             <button id="sayfalamaİptal" @click="sayfala=false">
               <fi icon="times-circle"></fi>
-            </button>{{ baslangicSayfa }} - {{ bitisSayfa }} / {{ rut_sayisi }}
+            </button>{{ baslangicSayfa }} - {{ sonDurakIndex }} / {{ rut_sayisi }}
         </div>
         <div id="onceki" :style="bitisSayfa<rut_sayisi ? 'visibility: visible' : 'visibility: hidden'">
           <button @click="sayfaNo++"><fi icon="forward"></fi></button>
@@ -17,21 +17,24 @@
       </div>
       <div id="mesafeSure">
         <div id="mesafe">
-          {{ toplamRutMesafe/1000 }} Kilomete
+          {{ Math.round((toplamRutMesafe/1000)*10)/10 }} Kilomete
         </div>
         <div id="sure">
-          {{ toplamRutSure/60 }} Dakika
+          {{ Math.round((toplamRutSure/60)*10)/10 }} Dakika
         </div>
       </div>
-      <draggable v-model="sortedClients" :swap="false" animation="200" id="rutlar">
+      <draggable v-model="sortedClients" handle=".draggable" animation="200" id="rutlar" :move='fixed'>
           <transition-group type="transition" name="flip-list">
-              <div class="route" v-for="(client, i) in sortedClients.slice(baslangicSayfa, sayfala?bitisSayfa:sortedClients.length)" @mouseover="showByIndex = i" @mouseout="showByIndex = null" :key="client.kodu" :style="showByIndex == i ? 'color: black' : ''" :class="(i<27&&sayfaNo==1) ? 'ilk25': ''">
-                <div class="sira">{{ client.index+1 }}</div>
+              <div class="route" v-for="(client, i) in sortedClients.slice(baslangicSayfa, sayfala?sonDurakIndex+1:sortedClients.length)" @mouseover="showByIndex = i" @mouseout="showByIndex = null" :key="client.kodu" :style="showByIndex == i ? 'color: black' : ''" :class="(client.index != 'bayrak') ? 'draggable': 'locked'">
+                <div class="sira" v-if="client.index == 'bayrak'">
+                  <img :src="require('@/assets/finish-flag/ldpi.png')" alt="" srcset="">
+                </div>
+                <div class="sira" v-else>{{ client.index+1 }}</div>
                 <span class="bilgi">
                   <div class="no">{{ client.kodu }}</div>
                   <div class="nereden">{{ client.adi }}</div>
                 </span>
-                <div class="sil" :style="showByIndex == i ? 'visibility: visible': 'visibility: hidden'">
+                <div class="sil" v-if="client.index != 'bayrak'" :style="showByIndex == i ? 'visibility: visible': 'visibility: hidden'">
                   <button @click="noktaSil(client.kodu)"><fi icon="trash" size="lg"></fi></button>
                 </div>
               </div>
@@ -39,9 +42,9 @@
       </draggable>
       <div id="eylemlerRut">
         <button id="rutuIptalEt" @click="rutIptalEt()"><fi icon="trash" size="lg"></fi> İptal Et </button>
-        <button id="optimizeEt" @click="optimizeEt()"><fi icon="cogs" size="lg"></fi> Optimize Et </button>
+        <button id="optimizeEt" @click="optimizeEt(true)"><fi icon="cogs" size="lg"></fi> Optimize Et </button>
         <button id="noktaEkle" @click="noktaEkle()"><fi icon="plus" size="lg"></fi> Nokta Ekle </button>
-        <button id="rutCiz" @click="rutCiz()"><fi icon="draw-polygon" size="lg"></fi> Rutu Çiz </button>
+        <button id="rutCiz" @click="optimizeEt(false)"><fi icon="draw-polygon" size="lg"></fi> Rutu Çiz </button>
       </div>
     </div>
     <div id="mapC">
@@ -62,15 +65,19 @@
         </gmap-map>
       </div>
     </div>
+    <clientEkleModal />
   </div>
 </template>
 
 <script>
 import {gmapApi} from 'vue2-google-maps';
 import draggable from 'vuedraggable';
+import clientEkleModal from '@/components/clientEkleModal';
+
 export default {
   components: {
-    draggable
+    draggable,
+    clientEkleModal
   },
   data() {
     return {
@@ -569,10 +576,17 @@ export default {
       sayfaNo: 1,
       sayfala: false,
       toplamRutMesafe: 0,
-      toplamRutSure: 0
+      toplamRutSure: 0,
+      itemPerPage: 25
     };
   },
   methods: {
+    fixed({related}) {
+      if (related)
+        {
+            return !related.classList.contains('locked');
+        }
+    },
     rad(x) {
         return x * Math.PI / 180;
     },
@@ -615,23 +629,23 @@ export default {
       this.markers.splice(mIndex, 1);
       this.rut_sayisi--;
     },
-    optimizeEt() {
+    optimizeEt(optimize) {
       this.toplamRutMesafe = 0;
       this.toplamRutSure = 0;
       this.sayfala = true;
-      let sonDurak = this.sortedClients.length/27>1 ? this.bitisSayfa-1 : this.sortedClients.length-1;
+
+      let originPoint = this.sortedClients[this.baslangicSayfa];
+      let destinationPoint = this.sortedClients[this.sonDurakIndex];
       console.log({
         baslangicSayfa: this.baslangicSayfa,
         bitisSayfa: this.bitisSayfa,
         sayfa: this.sayfaNo,
-        sonDurak
+        sonDurakIndex: this.sonDurakIndex
       });
-      
-      let dist = {
-        lat: this.sortedClients[sonDurak].enlem,
-        lng: this.sortedClients[sonDurak].boylam
-      }
-      let wp = this.sortedClients.slice(this.baslangicSayfa+1, sonDurak).map(x => {
+
+      let wayPoints = this.sortedClients.slice(this.baslangicSayfa+1, this.sonDurakIndex);
+
+      let wp = wayPoints.map(x => {
         return {
           location: {
             lat: x.enlem,
@@ -641,21 +655,24 @@ export default {
         }
       });
       console.log({
-        origin: this.sortedClients[this.baslangicSayfa],
-        wp: this.sortedClients.slice(this.baslangicSayfa+1, sonDurak),
-        destination: this.sortedClients[sonDurak]
+        origin: originPoint,
+        wp: wayPoints,
+        destination: destinationPoint
       });
+      //if (this.sayfala) return;
       
       let request = {
-        origin: { lat: this.sortedClients[this.baslangicSayfa].enlem, lng: this.sortedClients[this.baslangicSayfa].boylam},
-        destination: { location: dist },
+        origin: { lat: originPoint.enlem, lng: originPoint.boylam},
+        destination: { lat: destinationPoint.enlem, lng: destinationPoint.boylam},
         waypoints: wp,
-        optimizeWaypoints: true,
+        optimizeWaypoints: optimize,
         travelMode: 'DRIVING'
       };
       this.directionsService.route(request, (result, status) => {
         if (status == 'OK') {
           this.directionsRenderer.setDirections(result);
+          console.log(result);
+          
           /*for (let i = this.baslangicSayfa; i < this.bitisSayfa-1; i++) {
             
             this.markers[i].setMap(null);
@@ -663,12 +680,13 @@ export default {
           this.markers.splice(this.baslangicSayfa, this.bitisSayfa-1);
           */
           let newSortedClients = [];
-          newSortedClients.push(this.sortedClients[this.baslangicSayfa]);
+          newSortedClients.push(originPoint);
           result.routes[0].waypoint_order.forEach(id => {
-            newSortedClients.push(this.sortedClients.slice(this.baslangicSayfa+1, this.bitisSayfa-1).find(x => x.enlem+'' === wp[id].location.lat+'' && x.boylam+'' === wp[id].location.lng+''));
+            //newSortedClients.push(wayPoints.find(x => x.enlem+'' === wp[id].location.lat+'' && x.boylam+'' === wp[id].location.lng+''));
+            newSortedClients.push(wayPoints[id]);
           });
-          newSortedClients.push(this.sortedClients[this.bitisSayfa-1]);
-          this.sortedClients.splice(this.baslangicSayfa, 27, ...newSortedClients);
+          newSortedClients.push(destinationPoint);
+          this.sortedClients.splice(this.baslangicSayfa, this.itemPerPage+2, ...newSortedClients);
 
           for (let i = 0; i < result.routes[0].legs.length; i++) {
             const leg = result.routes[0].legs[i];
@@ -703,7 +721,8 @@ export default {
       this.rutHesaplaButton = true;
     },
     rutHesapla() {
-      this.rut_sayisi = prompt('Kaç müşteri gezmek istiyorsunuz?');        
+      this.rut_sayisi = prompt('Kaç müşteri gezmek istiyorsunuz?');
+      //this.rut_sayisi++;
       if(this.rut_sayisi == undefined || this.rut_sayisi == '' || this.rut_sayisi == 0) {
           alert('Müşteri sayısı belirtilmeden rut hesaplanamaz!');
           return;
@@ -728,36 +747,17 @@ export default {
           this.markers.push(mark);
       }
       this.rutHesaplaButton = false;
+      let basla = {
+        kodu: 'Başlangıç',
+        adi: 'Adres',
+        enlem: this.baslangic.lat(),
+        boylam: this.baslangic.lng(),
+        index: 'bayrak'
+      }
+      this.sortedClients.splice(0, 0, basla);
       window.sortedClients = this.sortedClients;
       this.google.maps.event.removeListener(this.pointListener);
     },
-    rutCiz() {
-      let dist = {
-        lat: this.sortedClients[this.sortedClients.length-1].enlem,
-        lng: this.sortedClients[this.sortedClients.length-1].boylam
-      }
-      let wp = this.sortedClients.slice(1, -1).map(x => {
-        return {
-          location: {
-            lat: x.enlem,
-            lng: x.boylam
-          }
-        }
-      });
-      let request = {
-        origin: { lat: this.sortedClients[0].enlem, lng: this.sortedClients[0].boylam },
-        destination: { location: dist },
-        waypoints: wp,
-        optimizeWaypoints: false,
-        travelMode: 'DRIVING'
-      };
-      this.directionsService.route(request, (result, status) => {
-        if (status == 'OK') {
-          this.directionsRenderer.setDirections(result);
-        }
-      });
-    }
-
   },
   async mounted() {
     this.map = await this.$refs.map.$mapPromise;    
@@ -769,7 +769,10 @@ export default {
         this.baslangicAyarla();  
     });
   },
-  created() {},
+  created() {
+    console.log(this.$root.cari);
+    
+  },
   computed: {
     google: gmapApi,
     directionsService() {
@@ -782,12 +785,19 @@ export default {
       return new this.google.maps.DistanceMatrixService();
     },
     baslangicSayfa() {
-      return (this.sayfaNo-1)*27-1 < 0?(this.sayfaNo-1)*27:(this.sayfaNo-1)*27-1;
+      //return (this.sayfaNo-1)*27-(this.sayfaNo - 1) < 0 ? (this.sayfaNo-1)*27 : (this.sayfaNo-1)*27-(this.sayfaNo - 1);
+      return (this.sayfaNo-1)*(this.itemPerPage + 1);
     },
     bitisSayfa() {
-      return (this.sayfaNo * 27)<this.rut_sayisi ? (this.sayfaNo==1?this.sayfaNo*27:this.sayfaNo*27-1) : this.rut_sayisi;
+      //return (this.sayfaNo * 27)<this.rut_sayisi ? (this.sayfaNo==1?this.sayfaNo*27:this.sayfaNo*27-1) : this.rut_sayisi;
+      return this.sayfaNo*(this.itemPerPage + 1);
     },
-
+    sonDurakIndex() {
+      let s = this.sortedClients.length>this.itemPerPage + 1 ? this.bitisSayfa : this.sortedClients.length-1;
+      if (s > this.sortedClients.length)
+        s = this.sortedClients.length-1;
+      return s;
+    }
     /*markers: () =>{
       return 
     }*/

@@ -18,5 +18,8 @@ Vue.use(Maps, {
 });
 
 window.v = new Vue({
+  data: {
+    cari: [11, 3, 5, 20]
+  },
   render: h => h(App),
 }).$mount('#app')
