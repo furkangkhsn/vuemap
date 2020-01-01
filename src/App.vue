@@ -65,7 +65,7 @@
         </gmap-map>
       </div>
     </div>
-    <clientEkleModal />
+    <clientEkleModal :open="noktaEkleModal" :olmayanMusteriler="olmayanMusteriler" @closeModal="noktaEkleModal=false" />
   </div>
 </template>
 
@@ -577,7 +577,9 @@ export default {
       sayfala: false,
       toplamRutMesafe: 0,
       toplamRutSure: 0,
-      itemPerPage: 25
+      itemPerPage: 25,
+      noktaEkleModal: false,
+      olmayanMusteriler: []
     };
   },
   methods: {
@@ -600,6 +602,12 @@ export default {
         var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         var d = R * c;
         return d;
+    },
+    noktaEkle() {
+      this.noktaEkleModal = true;
+      this.musteriler.forEach(x => {        
+        this.sortedClients.some(y => y.kodu == x.kodu) ? null : this.olmayanMusteriler.push(x);
+      });
     },
     rutIptalEt() {
       this.sortedClients = [];
