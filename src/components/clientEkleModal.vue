@@ -1,39 +1,75 @@
 <template>
-    <div class="modalContainer" v-if="open">
-        <div class="modal">
-            <div class="modal-header">
-                <span class="modal-title">Başlık</span>
-                <span class="modal-close" @click="$emit('closeModal')"><fi icon="times-circle" size="lg"></fi></span>
-            </div>
-            <div class="modal-content">
-                <div class="route" v-for="(client, i) in olmayanMusteriler" :key="client.kodu" @click="client.selected = !client.selected" :class="(client.selected!= undefined && client.selected==true) ? 'selected' : ''">
-                    <div class="sira">
-                        {{ i+1 }}
+    <transition name="bounce">
+        <div class="modalContainer" v-if="open">
+            <div class="modal-bg" @click="$emit('closeModal')"></div>
+            <div class="modal">
+                <div class="modal-header">
+                    <span class="modal-title">Başlık</span>
+                    <span class="modal-close" @click="$emit('closeModal')"><fi icon="times-circle" size="lg"></fi></span>
+                </div>
+                <div class="modal-content">
+                    <div class="route" v-for="(client, i) in olmayanlar" :key="client.kodu" @click="client.selected = !client.selected" :class="{'selected': client.selected}">
+                        <div class="sira">
+                            {{ i+1 }}
+                        </div>
+                        <span class="bilgi">
+                        <div class="no">{{ client.kodu }}</div>
+                        <div class="nereden">{{ client.adi }}</div>
+                        </span>
                     </div>
-                    <span class="bilgi">
-                    <div class="no">{{ client.kodu }}</div>
-                    <div class="nereden">{{ client.adi }}</div>
-                    </span>
+                </div>
+                <div class="modal-footer">
+                    <button :disabled="!this.olmayanlar.some(x => x.selected)" @click="noktalariEkle()"><fi icon="check-circle" size="lg"></fi></button>
                 </div>
             </div>
-            <div class="modal-footer">
-                işlem
-            </div>
         </div>
-    </div>
+    </transition>
 </template>
 
 <script>
 export default {
     props: ['open', 'olmayanMusteriler'],
-    created() {
-        console.log(this.olmayanMusteriler);
-        
+    methods: {
+        noktalariEkle() {
+            let secilenler = this.olmayanMusteriler.filter(x => x.selected);
+            this.$emit('secildi', secilenler);
+        }
+    },
+    computed: {
+        olmayanlar() {
+            return this.olmayanMusteriler.map(x => {
+                this.$set(x, 'selected', false);
+                return x;
+            });
+        }
     }
 }
 </script>
 
 <style scoped>
+
+.bounce-enter-active {
+  animation: bounce-in .5s;
+}
+
+.bounce-leave-active, .bounce-leave-to {
+  animation: bounce-in .5s reverse;
+}
+
+@keyframes bounce-in {
+  0% {
+    transform: scale(0);
+  }
+
+  50% {
+    transform: scale(1.2);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
     .modalContainer {
         position: fixed;
         top: 0;
@@ -44,7 +80,7 @@ export default {
         width: 100vw;
         height: 100vh;
         background-color: rgba(0, 0, 0, .8);
-        z-index: 9999999999;
+        z-index: 10;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 
     }
@@ -57,6 +93,17 @@ export default {
         display: flex;
         flex-direction: column;
         border-radius: .225rem;
+        z-index: 12;
+    }
+
+    .modal-bg {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 11;
+        background-color: transparent;
     }
 
     .modal-close {
@@ -91,6 +138,16 @@ export default {
 
     .modal-footer {
         border-top: .5px solid rgba(0, 0, 0, .8);
+        justify-content: flex-end;
+    }
+
+    .modal-footer button {
+        background-color: transparent;
+        border: none;
+        height: 100%;
+        margin: 0;
+        font-size: .8rem;
+        color: rgb(35, 194, 101);
     }
 
     .route {
@@ -114,7 +171,7 @@ export default {
     }
 
     .route.selected {
-        background-color: rgba(0, 255, 255, 0.2);
+        background-color: rgba(87, 228, 158, 0.2);
     }
 
     .route:hover {
