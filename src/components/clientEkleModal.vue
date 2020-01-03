@@ -4,7 +4,7 @@
             <div class="modal-bg" @click="$emit('closeModal')"></div>
             <div class="modal">
                 <div class="modal-header">
-                    <span class="modal-title">Başlık</span>
+                    <span class="modal-title">{{ dil.NOKTA_EKLE_BASLIK }}</span>
                     <span class="modal-close" @click="$emit('closeModal')"><fi icon="times-circle" size="lg"></fi></span>
                 </div>
                 <div class="modal-content">
@@ -21,7 +21,7 @@
                 <div class="modal-footer">
                     <button :disabled="!this.olmayanlar.some(x => x.selected)" @click="noktalariEkle()" class="buton">
                         <fi icon="check-circle" size="lg" style="margin-right: .2rem"></fi>
-                        Ekle
+                        {{ dil.EKLE }}
                     </button>
                 </div>
             </div>
@@ -31,7 +31,7 @@
 
 <script>
 export default {
-    props: ['open', 'olmayanMusteriler'],
+    props: ['open', 'olmayanMusteriler', 'dil'],
     methods: {
         noktalariEkle() {
             let secilenler = this.olmayanMusteriler.filter(x => x.selected);

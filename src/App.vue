@@ -1,87 +1,103 @@
 <template>
-  <div id="app" v-show="goster">
-    <transition name="slide-in">
-      <div id="directionsPanel" v-if="sortedClients.length > 0">
-        <div id="sayfalar" v-if="sayfala">
-          <div id="onceki" :style="baslangicSayfa>0 ? 'visibility: visible' : 'visibility: hidden'">
-            <button @click="sayfaNo--"><fi icon="backward"></fi></button>
-          </div>
-          <div id="sayfaNo">
-              <button id="sayfalamaİptal" @click="sayfalaIptal()">
-                <fi icon="times-circle"></fi>
-              </button>{{ baslangicSayfa }} - {{ sonDurakIndex }} / {{ sortedClients.length-1 }}
-          </div>
-          <div id="onceki" :style="bitisSayfa<sortedClients.length-1 ? 'visibility: visible' : 'visibility: hidden'">
-            <button @click="sayfaNo++"><fi icon="forward"></fi></button>
-          </div>
-        </div>
-        <div id="mesafeSure">
-          <div id="mesafe">
-            {{ Math.round((toplamRutMesafe/1000)*10)/10 }} Kilomete
-          </div>
-          <div id="sure">
-            {{ Math.round((toplamRutSure/60)*10)/10 }} Dakika
-          </div>
-        </div>
-        <draggable v-model="sortedClients" handle=".draggable" animation="200" id="rutlar" :move='fixed'>
-            <transition-group type="transition" name="flip-list">
-                <div class="route" v-for="(client, i) in sortedClients.slice(baslangicSayfa, sayfala?sonDurakIndex+1:sortedClients.length)" @mouseover="showByIndex = i" @mouseout="showByIndex = null" :key="client.kodu" :style="showByIndex == i ? 'color: black' : ''" :class="(client.index != 'bayrak') ? 'draggable': 'locked'">
-                  <div class="sira" v-if="client.index == 'bayrak'">
-                    <img :src="require('@/assets/finish-flag/ldpi.png')" alt="" srcset="">
-                  </div>
-                  <div class="sira" v-else>{{ client.index+1 }}</div>
-                  <span class="bilgi">
-                    <div class="no">{{ client.kodu }}</div>
-                    <div class="nereden">{{ client.adi }}</div>
-                  </span>
-                  <div class="sil" v-if="client.index != 'bayrak'" :style="showByIndex == i ? 'visibility: visible': 'visibility: hidden'">
-                    <button @click="noktaSil(client.kodu)"><fi icon="trash" size="lg"></fi></button>
-                  </div>
-                  <div class="vakit">
-                    <fi icon="clock" size="sm"></fi>
-                    15 dk.
-                  </div>
-                </div>
-            </transition-group>
-        </draggable>
-        <div id="eylemlerRut">
-          <button id="rutuIptalEt" @click="rutIptalEt()"><fi icon="trash" size="lg"></fi> İptal Et </button>
-          <button id="optimizeEt" @click="optimizeEt(true)"><fi icon="cogs" size="lg"></fi> Optimize Et </button>
-          <button id="noktaEkle" @click="noktaEkle()"><fi icon="plus" size="lg"></fi> Nokta Ekle </button>
-          <button id="rutCiz" @click="optimizeEt(false)"><fi icon="draw-polygon" size="lg"></fi> Rutu Çiz </button>
-          <button id="kaydet" @click="kaydet()"><fi icon="save" size="lg"></fi> Kaydet </button>
-        </div>
-      </div>
-    </transition>
-    <div id="mapC">
-      <div class="map">
-        <transition name="bounce">
-          <button id="rut_hesapla" @click="rutHesapla()" v-if="rutHesaplaButton">
-            <fi icon="location-arrow" size="lg"></fi>
-          </button>
-        </transition>
+  <transition name="bounce">
+    <div id="app" v-show="goster">
+      <button id="appClose" @click="closeApp">
+        <fi icon="times-circle" size="2x"></fi>
+      </button>
+      <div class="modalIcerik">
         <transition name="slide-in">
-          <input type="text" v-if="adresBar" id="adres-bar" placeholder="Adres girin veya haritaya tıklayın" @keypress="adresGir" v-model="adres">
+          <div id="directionsPanel" v-if="sortedClients.length > 0">
+            <div id="sayfalar" v-if="sayfala">
+              <div id="onceki" :style="baslangicSayfa>0 ? 'visibility: visible' : 'visibility: hidden'">
+                <button @click="sayfaNo--"><fi icon="backward"></fi></button>
+              </div>
+              <div id="sayfaNo">
+                  <button id="sayfalamaİptal" @click="sayfalaIptal()">
+                    <fi icon="times-circle"></fi>
+                  </button>{{ baslangicSayfa }} - {{ sonDurakIndex }} / {{ sortedClients.length-1 }}
+              </div>
+              <div id="onceki" :style="bitisSayfa<sortedClients.length-1 ? 'visibility: visible' : 'visibility: hidden'">
+                <button @click="sayfaNo++"><fi icon="forward"></fi></button>
+              </div>
+            </div>
+            <div id="mesafeSure">
+              <div id="mesafe">
+                {{ dil.TOPLAM_MESAFE.replace('{M}', Math.round((toplamRutMesafe/1000)*10)/10) }} <br>
+                {{ dil.TOPLAM_SURE.replace('{RS}', Math.round((toplamRutSure/60)*10)/10) }}
+              </div>
+              <div id="sure">
+                {{ dil.TOPLAM_ZIYARET_SURE.replace('{ZS}', Math.round((toplamRutSure/60)*10)/10 
+                  + sortedClients.reduce((acc, next) => {
+                    if(next.index!='bayrak'){
+                      return acc+next.sure;
+                    } else return acc;
+                  }, 0)
+                ) }}
+              </div>
+            </div>
+            <draggable v-model="sortedClients" handle=".draggable" animation="200" id="rutlar" :move='fixed'>
+                <transition-group type="transition" name="flip-list">
+                    <div class="route" v-for="(client) in sortedClients.slice(baslangicSayfa, sayfala?sonDurakIndex+1:sortedClients.length)" :key="client.kodu" :class="(client.kodu != dil.baslangic) ? 'draggable': 'locked'">
+                      <div class="sira" v-if="client.index == 'bayrak'">
+                        <img :src="require('@/assets/finish-flag/ldpi.png')" alt="" srcset="">
+                      </div>
+                      <div class="sira" v-else>{{ client.index+1 }}</div>
+                      <span class="bilgi">
+                        <div class="no">{{ client.kodu }}</div>
+                        <div class="nereden">{{ client.adi }}</div>
+                      </span>
+                      <div class="sil" v-if="client.kodu != dil.baslangic">
+                        <button @click="noktaSil(client.kodu)"><fi icon="trash" size="lg"></fi></button>
+                      </div>
+                      <div class="vakit" v-if="client.kodu != dil.baslangic">
+                        <fi icon="clock" size="sm"></fi>
+                        {{ client.sure }} dk.
+                      </div>
+                    </div>
+                </transition-group>
+            </draggable>
+            <div id="eylemlerRut">
+              <button id="rutuIptalEt" @click="rutIptalEt()"><fi icon="trash" size="lg"></fi> {{ dil.IPTAL }} </button>
+              <button id="optimizeEt" @click="optimizeEt(true)"><fi icon="cogs" size="lg"></fi> {{ dil.OPTIMIZE }} </button>
+              <button id="noktaEkle" @click="noktaEkle()"><fi icon="plus" size="lg"></fi> {{ dil.NOKTA_EKLE}} </button>
+              <button id="rutCiz" @click="optimizeEt(false)"><fi icon="draw-polygon" size="lg"></fi> {{ dil.RUT_CIZ }} </button>
+              <button id="kaydet" @click="kaydet()"><fi icon="save" size="lg"></fi> {{ dil.KAYDET }} </button>
+            </div>
+          </div>
         </transition>
-        <gmap-map
-          :center="center"
-          :zoom="zoom"
-          style="width:100%; height: 100%;"
-          ref="map"
-        >
-          <gmap-marker
-            :key="index"
-            v-for="(m, index) in markers"
-            :position="m.position"
-            :label='index+1+""'
-            @click="center=m.position"
-          ></gmap-marker>
-        </gmap-map>
+        <div id="mapC">
+          <div class="map">
+            <div class="haritaUI">
+              <transition name="bounce">
+                <button id="rut_hesapla" @click="rutHesapla()" v-if="rutHesaplaButton">
+                  <fi icon="location-arrow" size="lg"></fi>
+                </button>
+              </transition>
+              <transition name="slide-in">
+                <input type="text" v-if="adresBar" id="adres-bar" :placeholder="dil.ADRESBAR_PLACEHOLDER" @keypress="adresGir" v-model="adres">
+              </transition>
+            </div>
+            <gmap-map
+              :center="center"
+              :zoom="zoom"
+              style="width:100%; height: 100%;"
+              ref="map"
+            >
+              <gmap-marker
+                :key="index"
+                v-for="(m, index) in markers"
+                :position="m.position"
+                :label='index+1+""'
+                @click="center=m.position"
+              ></gmap-marker>
+            </gmap-map>
+          </div>
+        </div>
+        <clientEkleModal :open="noktaEkleModal" :dil="dil" :olmayanMusteriler="olmayanMusteriler" @secildi="secildi" @closeModal="noktaEkleModal=false" />
+      
       </div>
     </div>
-      <clientEkleModal :open="noktaEkleModal" :olmayanMusteriler="olmayanMusteriler" @secildi="secildi" @closeModal="noktaEkleModal=false" />
-
-  </div>
+  </transition>
 </template>
 
 <script>
@@ -121,14 +137,28 @@ export default {
       goster: false,
       callback: null,
       directionsRenderers: [],
-      results: []
+      results: [],
+      dil: {}
     };
   },
   methods: {
+    closeApp() {
+      this.goster = false;
+      this.pointListener = this.map.addListener("click", e => {
+        this.baslangic = e.latLng;
+        this.baslangicAyarla();
+      });
+      if(this.marker != undefined) this.marker.setMap(null);
+      this.marker = null;
+      this.sortedClients = [];
+      if(this.directionsRenderers.length>0) this.directionsRenderers.forEach(x => x.setMap(null));
+      if(this.markers.length>0) this.markers.forEach(x=>x.setMap(null));
+      this.directionsRenderers = [];
+      this.results = [];
+      this.markers = [];
+    },
     adresGir(e) {
       if(e.keyCode == 13) {
-        console.log("tamam");
-        
         this.geocoder.geocode( { 'address': this.adres}, (results, status) => {
           if (status == 'OK') {
             console.log(results);
@@ -141,7 +171,9 @@ export default {
       }
     },
     kaydet() {
-      this.callback(this.sortedClients.slice(1, this.sortedClients.length - 1));
+      if(this.callback(this.sortedClients.slice(1, this.sortedClients.length - 1))) {
+        this.closeApp();
+      }
     },
     sayfalaIptal() {
       this.sayfala = false;
@@ -309,7 +341,6 @@ export default {
       console.log(baslangic);
       if (baslangic != undefined) {
         this.baslangic = baslangic;
-        console.log("dolu başlangıç");
       }
       console.log(this.baslangic);
       
@@ -328,10 +359,10 @@ export default {
     rutHesapla(sayi=null) {
       console.log(sayi);
       
-      this.rut_sayisi = sayi==undefined ? prompt('Kaç müşteri gezmek istiyorsunuz?') : sayi;
+      this.rut_sayisi = sayi==undefined ? prompt(this.dil.RUT_SAYISI_BILDIRIM) : sayi;
       //this.rut_sayisi++;
       if(this.rut_sayisi == undefined || this.rut_sayisi == '' || this.rut_sayisi == 0) {
-          alert('Müşteri sayısı belirtilmeden rut hesaplanamaz!');
+          alert(this.dil.RUT_SAYISI_HATA);
           return;
       }      
       this.mesafeler = this.musteriler.map(x => {
@@ -360,14 +391,17 @@ export default {
       if(sayi==undefined)this.map.fitBounds(bounds);
       this.rutHesaplaButton = false;
       this.adresBar = false;
-      let basla = {
-        kodu: 'Başlangıç',
-        adi: 'Adres',
-        enlem: this.baslangic.lat(),
-        boylam: this.baslangic.lng(),
-        index: 'bayrak'
+      let basla;
+      if(sayi==undefined) {
+        basla = {
+          kodu: this.dil.BASLANGIC,
+          adi: '',
+          enlem: this.baslangic.lat(),
+          boylam: this.baslangic.lng(),
+          index: 'bayrak'
+        }
+        this.sortedClients.splice(0, 0, basla);
       }
-      this.sortedClients.splice(0, 0, basla);
       window.sortedClients = this.sortedClients;
       this.google.maps.event.removeListener(this.pointListener);
       if(sayi!=undefined) this.optimizeEt(false);
@@ -398,6 +432,7 @@ export default {
         this.baslangicAyarla(new this.google.maps.LatLng(this.sortedClients[0].enlem, this.sortedClients[0].boylam ));
       }
       this.callback = e.detail.callback;
+      this.dil = e.detail.dil;
     });
   },
   computed: {
@@ -476,13 +511,15 @@ body {
   }
 }
 
-#adres-bar {
+.haritaUI {
   position: absolute;
+  display: flex;
+  flex-direction: row-reverse;
   top: 10px;
   left: 10px;
-  border: none;
-  width: 365px;
-  padding: 12px;
+  width: fit-content;
+  padding: 0;
+  margin: 0;
   border-radius: .2rem;
   z-index: 9;
   box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14),
@@ -490,13 +527,18 @@ body {
   transition: box-shadow 0.25s, -webkit-box-shadow 0.25s;
 }
 
+#adres-bar {
+  border: none;
+  width: 365px;
+  padding: 12px;
+  border-radius: .2rem;
+  z-index: 9;
+}
+
 #rut_hesapla {
-  position: absolute;
   background-color: white;
   width: 64px;
   height: 39px;
-  top: 10px;
-  left: 334px;
   border: none;
   border-radius: .2rem;
   z-index: 10;
@@ -515,8 +557,39 @@ body {
 
 #app {
   display: flex;
-  flex-direction: row;
   height: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, .4);
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+#app #appClose {
+  position: absolute;
+  top: 0;
+  right: 0;
+  border: none;
+  background-color: white;
+  border-radius: 100%;
+  width: fit-content;
+  padding: 1px;
+}
+
+#app .modalIcerik {
+  display: flex;
+  flex-direction: row;
+  background-color: #fff;
+  height: 90%;
+  width: 90%;
+  min-width: 800px;
+  min-height: 600px;
+  max-height: 100vh;
+  overflow: auto;
 }
 
 #directionsPanel {
@@ -632,6 +705,15 @@ body {
   box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.14),
     0 3px 1px -2px rgba(0, 0, 0, 0.12), 0 1px 5px 0 rgba(0, 0, 0, 0.2);
   transition: box-shadow 0.25s, -webkit-box-shadow 0.25s;
+}
+
+.route .sil {
+  visibility: hidden;
+  width: 40px;
+}
+
+.route:hover .sil {
+  visibility: visible;
 }
 
 #directionsPanel .route .sil button {
