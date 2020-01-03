@@ -8,9 +8,9 @@
                     <span class="modal-close" @click="$emit('closeModal')"><fi icon="times-circle" size="lg"></fi></span>
                 </div>
                 <div class="modal-content">
-                    <div class="route" v-for="(client, i) in olmayanlar" :key="client.kodu" @click="client.selected = !client.selected" :class="{'selected': client.selected}">
+                    <div class="route" v-for="(client) in olmayanlar" :key="client.kodu" @click="client.selected = !client.selected">
                         <div class="sira">
-                            {{ i+1 }}
+                            <input type="checkbox" v-model="client.selected">
                         </div>
                         <span class="bilgi">
                         <div class="no">{{ client.kodu }}</div>
@@ -19,7 +19,10 @@
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button :disabled="!this.olmayanlar.some(x => x.selected)" @click="noktalariEkle()"><fi icon="check-circle" size="lg"></fi></button>
+                    <button :disabled="!this.olmayanlar.some(x => x.selected)" @click="noktalariEkle()" class="buton">
+                        <fi icon="check-circle" size="lg" style="margin-right: .2rem"></fi>
+                        Ekle
+                    </button>
                 </div>
             </div>
         </div>
@@ -143,11 +146,15 @@ export default {
 
     .modal-footer button {
         background-color: transparent;
-        border: none;
         height: 100%;
         margin: 0;
         font-size: .8rem;
-        color: rgb(35, 194, 101);
+        color: black;
+        border: .5px solid #666;
+        border-radius: .2rem;
+        width: 70px;
+        height: 35px;
+        background-color: rgb(30, 200, 149);
     }
 
     .route {
