@@ -1,6 +1,7 @@
 <template>
   <transition name="bounce">
     <div id="app" v-show="goster">
+      <div id="yukleniyor" v-if="yukleniyor"> <fi icon="sync-alt"></fi> Yükleniyor... </div>
       <button id="appClose" @click="closeApp">
         <fi icon="times-circle" size="2x"></fi>
       </button>
@@ -22,11 +23,10 @@
             </div>
             <div id="mesafeSure">
               <div id="mesafe">
-                {{ dil.TOPLAM_MESAFE.replace('{M}', Math.round((toplamRutMesafe/1000)*10)/10) }} <br>
-                {{ dil.TOPLAM_SURE.replace('{RS}', Math.round((toplamRutSure/60)*10)/10) }}
+                {{ dil.MAP_TOPLAM_RUT.replace('{M}', Math.round((toplamRutMesafe/1000)*10)/10).replace('{RS}', Math.round((toplamRutSure/60)*10)/10) }}
               </div>
               <div id="sure">
-                {{ dil.TOPLAM_ZIYARET_SURE.replace('{ZS}', Math.round((toplamRutSure/60)*10)/10 
+                {{ dil.MAP_TOPLAM_ZIYARET_SURE.replace('{ZS}', Math.round((toplamRutSure/60)*10)/10 
                   + sortedClients.reduce((acc, next) => {
                     if(next.index!='bayrak'){
                       return acc+next.sure;
@@ -37,7 +37,7 @@
             </div>
             <draggable v-model="sortedClients" handle=".draggable" animation="200" id="rutlar" :move='fixed'>
                 <transition-group type="transition" name="flip-list">
-                    <div class="route" v-for="(client) in sortedClients.slice(baslangicSayfa, sayfala?sonDurakIndex+1:sortedClients.length)" :key="client.kodu" :class="(client.kodu != dil.baslangic) ? 'draggable': 'locked'">
+                    <div class="route" v-for="(client) in sortedClients.slice(baslangicSayfa, sayfala?sonDurakIndex+1:sortedClients.length)" @click="panToMarker(client)" :key="client.kodu" :class="(client.index != 'bayrak') ? 'draggable': 'locked'">
                       <div class="sira" v-if="client.index == 'bayrak'">
                         <img :src="require('@/assets/finish-flag/ldpi.png')" alt="" srcset="">
                       </div>
@@ -46,10 +46,10 @@
                         <div class="no">{{ client.kodu }}</div>
                         <div class="nereden">{{ client.adi }}</div>
                       </span>
-                      <div class="sil" v-if="client.kodu != dil.baslangic">
-                        <button @click="noktaSil(client.kodu)"><fi icon="trash" size="lg"></fi></button>
+                      <div class="sil" v-if="client.kodu != dil.MAP_baslangic">
+                        <button @click.stop="noktaSil(client.kodu)"><fi icon="trash" size="lg"></fi></button>
                       </div>
-                      <div class="vakit" v-if="client.kodu != dil.baslangic">
+                      <div class="vakit" v-if="client.kodu != dil.MAP_baslangic">
                         <fi icon="clock" size="sm"></fi>
                         {{ client.sure }} dk.
                       </div>
@@ -57,11 +57,11 @@
                 </transition-group>
             </draggable>
             <div id="eylemlerRut">
-              <button id="rutuIptalEt" @click="rutIptalEt()"><fi icon="trash" size="lg"></fi> {{ dil.IPTAL }} </button>
-              <button id="optimizeEt" @click="optimizeEt(true)"><fi icon="cogs" size="lg"></fi> {{ dil.OPTIMIZE }} </button>
-              <button id="noktaEkle" @click="noktaEkle()"><fi icon="plus" size="lg"></fi> {{ dil.NOKTA_EKLE}} </button>
-              <button id="rutCiz" @click="optimizeEt(false)"><fi icon="draw-polygon" size="lg"></fi> {{ dil.RUT_CIZ }} </button>
-              <button id="kaydet" @click="kaydet()"><fi icon="save" size="lg"></fi> {{ dil.KAYDET }} </button>
+              <button id="rutuIptalEt" @click="rutIptalEt()"><fi icon="trash" size="lg"></fi> {{ dil.MAP_IPTAL }} </button>
+              <button id="optimizeEt" @click="optimizeEt(true)" :disabled="sortedClients.map(x=>x.kodu).join('|') == siralama && optimized == true"><fi icon="cogs" size="lg"></fi> {{ dil.MAP_OPTIMIZE }} </button>
+              <button id="noktaEkle" @click="noktaEkle()"><fi icon="plus" size="lg"></fi> {{ dil.MAP_NOKTA_EKLE}} </button>
+              <button id="rutCiz" @click="optimizeEt(false)" :disabled="sortedClients.map(x=>x.kodu).join('|') == siralama && optimized == false"><fi icon="draw-polygon" size="lg"></fi> {{ dil.MAP_RUT_CIZ }} </button>
+              <button id="kaydet" @click="kaydet()"><fi icon="save" size="lg"></fi> {{ dil.MAP_KAYDET }} </button>
             </div>
           </div>
         </transition>
@@ -74,7 +74,7 @@
                 </button>
               </transition>
               <transition name="slide-in">
-                <input type="text" v-if="adresBar" id="adres-bar" :placeholder="dil.ADRESBAR_PLACEHOLDER" @keypress="adresGir" v-model="adres">
+                <input type="text" v-if="adresBar" id="adres-bar" :placeholder="dil.MAP_ADRESBAR_PLACEHOLDER" @keypress="adresGir" v-model="adres">
               </transition>
             </div>
             <gmap-map
@@ -83,13 +83,6 @@
               style="width:100%; height: 100%;"
               ref="map"
             >
-              <gmap-marker
-                :key="index"
-                v-for="(m, index) in markers"
-                :position="m.position"
-                :label='index+1+""'
-                @click="center=m.position"
-              ></gmap-marker>
             </gmap-map>
           </div>
         </div>
@@ -104,6 +97,10 @@
 import { gmapApi } from "vue2-google-maps";
 import draggable from "vuedraggable";
 import clientEkleModal from "@/components/clientEkleModal";
+import "jquery";
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap/dist/js/bootstrap.min.js";
+import bootbox from "bootbox";
 
 export default {
   components: {
@@ -112,6 +109,7 @@ export default {
   },
   data() {
     return {
+      yukleniyor: false,
       adresBar: true,
       adres: "",
       showByIndex: null,
@@ -138,30 +136,81 @@ export default {
       callback: null,
       directionsRenderers: [],
       results: [],
-      dil: {}
+      dil: {},
+      siralama: '',
+      bootbox: null,
+      optimized : null
     };
   },
   methods: {
-    closeApp() {
-      this.goster = false;
-      this.pointListener = this.map.addListener("click", e => {
-        this.baslangic = e.latLng;
-        this.baslangicAyarla();
+    panToMarker(client) {
+      this.map.panTo(new this.google.maps.LatLng(client.enlem, client.boylam));
+      this.map.setZoom(15);
+      let marker = this.markers.find(x => x.kodu == client.kodu);
+      marker.setAnimation(this.google.maps.Animation.BOUNCE);
+      setTimeout(() => {
+        marker.setAnimation(null);
+      }, 2000);
+    },
+    closeApp(onay=true) {
+      if (!onay) {
+        bootbox.alert(this.dil.MAP_KAYDET_BASARILI);
+        this.goster = false;
+        this.pointListener = this.map.addListener("click", e => {
+          this.baslangic = e.latLng;
+          this.baslangicAyarla();
+        });
+        if(this.marker != undefined) this.marker.setMap(null);
+        this.marker = null;
+        this.sortedClients = [];
+        if(this.directionsRenderers.length>0) this.directionsRenderers.forEach(x => x.setMap(null));
+        if(this.markers.length>0) this.markers.forEach(x=>x.setMap(null));
+        this.directionsRenderers = [];
+        this.results = [];
+        this.markers = [];
+        this.adresBar = true;
+        this.adres = '';
+        return;
+      }
+      bootbox.confirm({
+        title: this.dil.MAP_CLOSE_MODAL_TITLE,
+        message: this.dil.MAP_CLOSE_MODAL_MESSAGE,
+        buttons: {
+          confirm: {
+            label: this.dil.MAP_YES,
+            className: "btn-success"
+          },
+          cancel: {
+            label: this.dil.MAP_NO,
+            className: "btn-danger"
+          }
+        },
+        callback: (res) => {
+          if(res) {
+            this.goster = false;
+            this.pointListener = this.map.addListener("click", e => {
+              this.baslangic = e.latLng;
+              this.baslangicAyarla();
+            });
+            if(this.marker != undefined) this.marker.setMap(null);
+            this.marker = null;
+            this.sortedClients = [];
+            if(this.directionsRenderers.length>0) this.directionsRenderers.forEach(x => x.setMap(null));
+            if(this.markers.length>0) this.markers.forEach(x=>x.setMap(null));
+            this.directionsRenderers = [];
+            this.results = [];
+            this.markers = [];
+            this.adresBar = true;
+            this.adres = '';
+          }
+        }
       });
-      if(this.marker != undefined) this.marker.setMap(null);
-      this.marker = null;
-      this.sortedClients = [];
-      if(this.directionsRenderers.length>0) this.directionsRenderers.forEach(x => x.setMap(null));
-      if(this.markers.length>0) this.markers.forEach(x=>x.setMap(null));
-      this.directionsRenderers = [];
-      this.results = [];
-      this.markers = [];
     },
     adresGir(e) {
       if(e.keyCode == 13) {
         this.geocoder.geocode( { 'address': this.adres}, (results, status) => {
           if (status == 'OK') {
-            console.log(results);
+          
             this.map.setCenter(results[0].geometry.location);
             this.baslangicAyarla(results[0].geometry.location);
           } else {
@@ -171,8 +220,13 @@ export default {
       }
     },
     kaydet() {
-      if(this.callback(this.sortedClients.slice(1, this.sortedClients.length - 1))) {
-        this.closeApp();
+      let index = 0;
+      let last = this.sortedClients.length;
+      if(this.sortedClients[0].index == "bayrak") index = 1; 
+      if(this.callback(this.sortedClients.slice(index, last))) {
+        this.closeApp(false);
+      }else {
+        bootbox.alert(this.dil.MAP_KAYDET_HATA);
       }
     },
     sayfalaIptal() {
@@ -227,25 +281,48 @@ export default {
       this.noktaEkleModal = false;
     },
     rutIptalEt() {
-      this.sortedClients = [];
-      this.mesafeler = [];
-      this.marker.setMap(null);
-      this.marker = null;
-      this.baslangic = null;
-      this.rutHesaplaButton = false;
-      this.rut_sayisi = 0;
-      this.markers.forEach(marker => {
-        marker.setMap(null);
+      bootbox.confirm({
+        title: this.dil.MAP_IPTAL_TITLE,
+        message: this.dil.MAP_IPTAL_MESSAGE,
+        buttons: {
+          confirm: {
+            label: this.dil.MAP_YES,
+            className: "btn-success"
+          },
+          cancel: {
+            label: this.dil.MAP_NO,
+            className: "btn-danger"
+          }
+        },
+        callback: (res) => {
+          if(res) {
+            this.sortedClients = [];
+            this.mesafeler = [];
+            if(this.marker != undefined) this.marker.setMap(null);
+            this.marker = null;
+            this.baslangic = null;
+            this.rutHesaplaButton = false;
+            this.rut_sayisi = 0;
+            this.markers.forEach(marker => {
+              marker.setMap(null);
+            });
+            this.markers = [];
+            this.pointListener = this.map.addListener("click", e => {
+              this.baslangic = e.latLng;
+              this.baslangicAyarla();
+            });
+            this.sayfaNo = 1;
+            this.sayfala = false;
+            this.adresBar = true;
+            this.adres = '';
+            this.directionsRenderers.forEach(x => {
+              x.setMap(null);
+            });
+            this.directionsRenderers = [];
+            this.results = [];
+          }
+        }
       });
-      this.markers = [];
-      this.pointListener = this.map.addListener("click", e => {
-        this.baslangic = e.latLng;
-        this.baslangicAyarla();
-      });
-      this.sayfaNo = 1;
-      this.sayfala = false;
-      this.adresBar = true;
-      this.adres = '';
     },
     noktaSil(kod) {
       let index = this.sortedClients.findIndex(x => x.kodu == kod);
@@ -259,12 +336,15 @@ export default {
       this.rut_sayisi--;
     },
     async optimizeEt(optimize) {
+      if(this.sortedClients.map(x=>x.kodu).join('|') == this.siralama && this.optimized == optimize) return;
       this.toplamRutMesafe = 0;
       this.toplamRutSure = 0;
       this.sayfala = true;
       this.directionsRenderers.forEach(x => x.setMap(null));
       this.directionsRenderers = [];
       this.results = [];
+      this.yukleniyor = true;
+      this.optimized = optimize;
 
       for (; this.sayfaNo <= Math.ceil(this.sortedClients.length/(this.itemPerPage+2)); this.sayfaNo++) {
         let originPoint = this.sortedClients[this.baslangicSayfa];
@@ -294,13 +374,18 @@ export default {
           optimizeWaypoints: optimize,
           travelMode: "DRIVING"
         };
-        let result = await this.promisifiedDirection(request);
+        let result;
+        try {
+          result = await this.promisifiedDirection(request);
+        } catch (e) {
+        
+          if(e == "OVER_QUERY_LIMIT") {
+            bootbox.alert(this.dil.MAP_QUERY_LIMIT);
+            return;
+          }
+        }
+        
         this.results.push(result);
-        let dr = new this.google.maps.DirectionsRenderer({ suppressMarkers: true, preserveViewport: true });
-        dr.setMap(this.map);
-        dr.setDirections(result);
-        this.directionsRenderers.push(dr);
-
         if (optimize) {
           let newSortedClients = [];
           newSortedClients.push(originPoint);
@@ -321,50 +406,79 @@ export default {
           this.toplamRutSure += leg.duration.value;
         }
       }
-      console.log(this.results);
       
       for (let i = 0; i < this.results.length; i++) {
-        const res = this.results[i];
-        this.directionsRenderers[i].setDirections(res);
+        const result = this.results[i];
+        let dr = new this.google.maps.DirectionsRenderer({ suppressMarkers: true, preserveViewport: true });
+        dr.setMap(this.map);
+        dr.setDirections(result);
+        this.directionsRenderers.push(dr);
+
       }
+      this.siralama = this.sortedClients.map(x=>x.kodu).join('|');
       this.sayfaNo = 1;
+      this.sayfala = false;
+      this.yukleniyor = false;
     },
     promisifiedDirection(request) {
       return new Promise((resolve, reject) => {
           this.directionsService.route(request, (res, stat) => {
+           
             if(stat == "OK") resolve(res);
-            else reject;
+            else {
+              this.yukleniyor = false;
+              reject(stat);
+            }
           });
       });
     },
     baslangicAyarla(baslangic=null) {
-      console.log(baslangic);
+    
       if (baslangic != undefined) {
         this.baslangic = baslangic;
       }
-      console.log(this.baslangic);
+    
       
       if (this.marker != undefined) this.marker.setMap(null);
-      this.marker = new this.google.maps.Marker({
+      if(baslangic == undefined) this.marker = new this.google.maps.Marker({
         position: this.baslangic,
         map: this.map,
         icon: require("@/assets/finish-flag/mdpi.png")
       });
-      this.marker.setLabel("B");
       this.rutHesaplaButton = true;
       if(baslangic != undefined && this.sortedClients.length>0) {
         this.rutHesapla(this.sortedClients.length);
       }
     },
     rutHesapla(sayi=null) {
-      console.log(sayi);
-      
-      this.rut_sayisi = sayi==undefined ? prompt(this.dil.RUT_SAYISI_BILDIRIM) : sayi;
-      //this.rut_sayisi++;
-      if(this.rut_sayisi == undefined || this.rut_sayisi == '' || this.rut_sayisi == 0) {
-          alert(this.dil.RUT_SAYISI_HATA);
-          return;
-      }      
+      if (sayi == undefined) {
+        var locale = {
+            OK: this.dil.MAP_TAMAM,
+            CONFIRM: this.dil.MAP_TAMAM,
+            CANCEL: this.dil.MAP_IPTAL
+        };
+                    
+        bootbox.addLocale('custom', locale);
+                    
+        bootbox.prompt({ 
+            title: this.dil.MAP_RUT_SAYISI_BILDIRIM, 
+            locale: 'custom',
+            callback: (result) => {
+              if(result==undefined || result=='' || result== 0) {
+                bootbox.alert(this.dil.MAP_RUT_SAYISI_HATA);
+                return;
+              } else {
+                this.rrr(result, true);
+              }
+            }
+        });
+      } else {
+        this.rrr(sayi, false);
+      }     
+    },
+    rrr(sayi, predef) {
+      this.rut_sayisi = (sayi > this.musteriler.length) ? this.musteriler.length : sayi;
+
       this.mesafeler = this.musteriler.map(x => {
           return {
               kodu: x.kodu,
@@ -373,28 +487,28 @@ export default {
           }
       }).sort((x, y) => x.uzakligi - y.uzakligi);
       
-      if(sayi==undefined) var bounds = new this.google.maps.LatLngBounds();
+      if(predef) var bounds = new this.google.maps.LatLngBounds();
       for (let i = 0; i < this.rut_sayisi; i++) {
-          if(sayi == undefined) this.sortedClients.push(this.musteriler.find(y => y.kodu == this.mesafeler[i].kodu));
+          if(predef) this.sortedClients.push(this.musteriler.find(y => y.kodu == this.mesafeler[i].kodu));
           this.sortedClients[i].index = i;
           let position = new this.google.maps.LatLng(this.sortedClients[i].enlem, this.sortedClients[i].boylam);
           let mark = new this.google.maps.Marker({
               position,
               map: this.map,
-              label: this.sortedClients[i].index+1+''
+              label: {text: this.sortedClients[i].index+1+''}
           });
-          if(sayi==undefined)bounds.extend(mark.position);
+          if(predef)bounds.extend(mark.position);
           mark.kodu = this.sortedClients[i].kodu;    
           this.markers.push(mark);
       }
       
-      if(sayi==undefined)this.map.fitBounds(bounds);
+      if(predef)this.map.fitBounds(bounds);
       this.rutHesaplaButton = false;
       this.adresBar = false;
       let basla;
-      if(sayi==undefined) {
+      if(predef) {
         basla = {
-          kodu: this.dil.BASLANGIC,
+          kodu: this.dil.MAP_BASLANGIC,
           adi: '',
           enlem: this.baslangic.lat(),
           boylam: this.baslangic.lng(),
@@ -404,7 +518,7 @@ export default {
       }
       window.sortedClients = this.sortedClients;
       this.google.maps.event.removeListener(this.pointListener);
-      if(sayi!=undefined) this.optimizeEt(false);
+      if(!predef && this.results.length<=0) this.optimizeEt(false);
     }
   },
   async mounted() {
@@ -414,7 +528,7 @@ export default {
       this.baslangicAyarla();
     });
     this.map.setOptions({disableDefaultUI:true});
-
+    this.bootbox = bootbox;
     /*if(this.sortedClients.length>0) {
       this.baslangicAyarla({ lat: this.sortedClients[0].enlem, lng: this.sortedClients[0].boylam });
     }*/
@@ -424,15 +538,13 @@ export default {
       this.goster = true;
     });
     if (window.musteriEvent == undefined) window.musteriEvent = document.addEventListener("musterileriAl", e => {
-      console.log(e.detail);
-      
+      this.callback = e.detail.callback;
+      this.dil = e.detail.dil;
       this.musteriler = e.detail.musteriler;
       if(e.detail.sortedList.length>0) {
         this.sortedClients = e.detail.sortedList;
         this.baslangicAyarla(new this.google.maps.LatLng(this.sortedClients[0].enlem, this.sortedClients[0].boylam ));
       }
-      this.callback = e.detail.callback;
-      this.dil = e.detail.dil;
     });
   },
   computed: {
@@ -466,10 +578,35 @@ export default {
 };
 </script>
 
-<style>
+<style scoped>
 body {
   margin: 0;
   height: 100vh;
+}
+
+#yukleniyor {
+  position: fixed;
+  height: 100vh;
+  width: 100vw;
+  top: 0;
+  left: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999999;
+  background-color: rgba(0, 0, 0, .8);
+  color: white;
+}
+
+#yukleniyor svg {
+  margin-right: .7rem;
+  animation: rotate 1.3s infinite;
+}
+
+@keyframes rotate {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .slide-in-enter-active {
@@ -538,7 +675,6 @@ body {
 #rut_hesapla {
   background-color: white;
   width: 64px;
-  height: 39px;
   border: none;
   border-radius: .2rem;
   z-index: 10;
@@ -593,7 +729,7 @@ body {
 }
 
 #directionsPanel {
-  background-color: /*rgba(223, 230, 233,1.0);*/ white;
+  background-color: white;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -775,6 +911,11 @@ body {
 
 button {
   cursor: pointer;
+  line-height: 1;
+  font-size: .8rem;
+}
+button:disabled {
+  background-color: rgba(0, 0, 0, 0.133) !important;
 }
 
 * {

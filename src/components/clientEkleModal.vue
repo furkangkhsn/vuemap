@@ -1,13 +1,13 @@
 <template>
     <transition name="bounce">
-        <div class="modalContainer" v-if="open">
-            <div class="modal-bg" @click="$emit('closeModal')"></div>
-            <div class="modal">
-                <div class="modal-header">
-                    <span class="modal-title">{{ dil.NOKTA_EKLE_BASLIK }}</span>
-                    <span class="modal-close" @click="$emit('closeModal')"><fi icon="times-circle" size="lg"></fi></span>
+        <div class="modalfContainer" v-if="open">
+            <div class="modalf-bg" @click="$emit('closeModal')"></div>
+            <div class="modalf">
+                <div class="modalf-header">
+                    <span class="modalf-title">{{ dil.MAP_NOKTA_EKLE_BASLIK }}</span>
+                    <span class="modalf-close" @click="$emit('closeModal')"><fi icon="times-circle" size="lg"></fi></span>
                 </div>
-                <div class="modal-content">
+                <div class="modalf-content">
                     <div class="route" v-for="(client) in olmayanlar" :key="client.kodu" @click="client.selected = !client.selected">
                         <div class="sira">
                             <input type="checkbox" v-model="client.selected">
@@ -18,10 +18,10 @@
                         </span>
                     </div>
                 </div>
-                <div class="modal-footer">
+                <div class="modalf-footer">
                     <button :disabled="!this.olmayanlar.some(x => x.selected)" @click="noktalariEkle()" class="buton">
                         <fi icon="check-circle" size="lg" style="margin-right: .2rem"></fi>
-                        {{ dil.EKLE }}
+                        {{ dil.MAP_EKLE }}
                     </button>
                 </div>
             </div>
@@ -73,7 +73,7 @@ export default {
   }
 }
 
-    .modalContainer {
+    .modalfContainer {
         position: fixed;
         top: 0;
         left: 0;
@@ -88,7 +88,7 @@ export default {
 
     }
 
-    .modal {
+    .modalf {
         width: 400px;
         height: 80%;
         min-height: 300px;
@@ -99,7 +99,7 @@ export default {
         z-index: 12;
     }
 
-    .modal-bg {
+    .modalf-bg {
         position: fixed;
         top: 0;
         left: 0;
@@ -109,7 +109,7 @@ export default {
         background-color: transparent;
     }
 
-    .modal-close {
+    .modalf-close {
         width: 30px;
         height: 100%;
         margin: 0;
@@ -118,7 +118,7 @@ export default {
         align-items: center;
     }
 
-    .modal-content {
+    .modalf-content {
         flex: 1;
         display: flex;
         flex-direction: column;
@@ -126,7 +126,7 @@ export default {
         overflow-y: auto;
     }
 
-    .modal-header, .modal-footer {
+    .modalf-header, .modalf-footer {
         height: 50px;
         display: flex;
         flex-direction: row;
@@ -135,16 +135,16 @@ export default {
         padding: 0 1rem;
     }
 
-    .modal-header {
+    .modalf-header {
         border-bottom: .5px solid rgba(0, 0, 0, .8);
     }
 
-    .modal-footer {
+    .modalf-footer {
         border-top: .5px solid rgba(0, 0, 0, .8);
         justify-content: flex-end;
     }
 
-    .modal-footer button {
+    .modalf-footer button {
         background-color: transparent;
         height: 100%;
         margin: 0;
