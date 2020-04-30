@@ -14,7 +14,7 @@
     "bootbox": "^5.4.0",
     "bootstrap": "^4.4.1",
     "core-js": "^3.4.3",
-    "jquery": "^3.4.1",
+    "jquery": "^3.5.0",
     "vue": "^2.6.10",
     "vue2-google-maps": "^0.10.7",
     "vuedraggable": "^2.23.2"
